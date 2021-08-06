@@ -1,5 +1,8 @@
 import Phaser from "phaser";
 import PlayScene from "./scenes/PlayScene";
+import MenuScene from "./scenes/MenuScene";
+import ScoreScene from "./scenes/ScoreScene";
+import PreloadScene from "./scenes/PreloadScene";
 
 const WIDTH = 800;
 const HEIGHT = 600;
@@ -10,6 +13,10 @@ const SHARED_CONFIG = {
     height: HEIGHT,
     startPosition: BIRD_ORIGIN,
 };
+
+const Scenes = [PreloadScene, MenuScene, PlayScene, ScoreScene];
+const createScene = (Scene) => new Scene(SHARED_CONFIG);
+const initScenes = () => Scenes.map(createScene);
 
 const debugPhysics = true;
 
@@ -25,7 +32,7 @@ const config = {
             debug: debugPhysics,
         },
     },
-    scene: [new PlayScene(SHARED_CONFIG)],
+    scene: initScenes(),
 };
 
 new Phaser.Game(config);
