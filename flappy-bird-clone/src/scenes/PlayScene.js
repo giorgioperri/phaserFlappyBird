@@ -14,17 +14,44 @@ class PlayScene extends Phaser.Scene {
         this.pipeHorizontalDistanceRange = [400, 500];
 
         this.flapStrength = -250;
+
+        this.score = 0;
+        this.scoreText = "";
     }
 
     preload() {
         this.load.image("sky", "assets/sky.png");
         this.load.image("bird", "assets/bird.png");
         this.load.image("pipe", "assets/pipe.png");
+        this.load.image("pause", "assets/pause.png");
     }
 
     create() {
-        this.add.image(0, 0, "sky").setOrigin(0);
+        this.createBG();
+        this.createPauseButton();
+        this.createBird();
+        this.createPipes();
+        this.createColliders();
+        this.createScore();
+        this.handleInputs();
+    }
 
+    update() {
+        this.checkGameStatus();
+        this.recyclePipes();
+    }
+
+    createBG() {
+        this.add.image(0, 0, "sky").setOrigin(0);
+    }
+
+    createPauseButton() {
+        this.add
+            .image(this.config.width - 10, this.config.height - 10, "pause")
+            .setOrigin(1);
+    }
+
+    createBird() {
         this.bird = this.physics.add
             .sprite(
                 this.config.startPosition.x,
@@ -33,28 +60,60 @@ class PlayScene extends Phaser.Scene {
             )
             .setOrigin(0);
         this.bird.body.gravity.y = 400;
+        this.bird.setCollideWorldBounds(true);
+    }
 
+    createPipes() {
         this.pipes = this.physics.add.group();
 
         for (let i = 0; i < PIPES_TO_RENDER; i++) {
-            const upperPipe = this.pipes.create(0, 0, "pipe").setOrigin(0, 1);
-            const lowerPipe = this.pipes.create(0, 0, "pipe").setOrigin(0, 0);
+            const upperPipe = this.pipes
+                .create(0, 0, "pipe")
+                .setImmovable(true)
+                .setOrigin(0, 1);
+            const lowerPipe = this.pipes
+                .create(0, 0, "pipe")
+                .setImmovable(true)
+                .setOrigin(0);
 
             this.placePipe(upperPipe, lowerPipe);
         }
 
         this.pipes.setVelocityX(-200);
+    }
 
+    createColliders() {
+        this.physics.add.collider(
+            this.bird,
+            this.pipes,
+            this.gameOver,
+            null,
+            this
+        );
+    }
+
+    createScore() {
+        this.score = 0;
+        const highscore = localStorage.getItem("highscore");
+        this.scoreText = this.add.text(16, 16, `Score: ${this.score}`, {
+            fontSize: "32px",
+            fill: "#000",
+        });
+        this.add.text(16, 52, `Highscore: ${highscore || 0}`, {
+            fontSize: "18px",
+            fill: "#000",
+        });
+    }
+
+    handleInputs() {
         this.input.on("pointerdown", this.flap, this);
         this.input.keyboard.on("keydown-SPACE", this.flap, this);
     }
 
-    update() {
-        this.bird.y > this.config.height || this.bird.y < -this.bird.height
-            ? this.restartBirdPosition()
+    checkGameStatus() {
+        this.bird.getBounds().bottom >= this.config.height || this.bird.y <= 0
+            ? this.gameOver()
             : null;
-
-        this.recyclePipes();
     }
 
     placePipe(uPipe, lPipe) {
@@ -85,7 +144,11 @@ class PlayScene extends Phaser.Scene {
         this.pipes.getChildren().forEach((pipe) => {
             pipe.getBounds().right <= 0
                 ? (tempPipes.push(pipe),
-                  tempPipes.length === 2 ? this.placePipe(...tempPipes) : null)
+                  tempPipes.length === 2
+                      ? (this.placePipe(...tempPipes),
+                        this.increaseScore(),
+                        this.saveHighscore())
+                      : null)
                 : null;
         });
     }
@@ -100,14 +163,37 @@ class PlayScene extends Phaser.Scene {
         return rightMostX;
     }
 
-    restartBirdPosition() {
-        this.bird.x = this.config.startPosition.x;
-        this.bird.y = this.config.startPosition.y;
-        this.bird.body.velocity.y = 0;
+    saveHighscore() {
+        const highscoreText = localStorage.getItem("highscore");
+        const highscore = highscoreText && parseInt(highscoreText, 10);
+
+        !highscore || this.score > highscore
+            ? localStorage.setItem("highscore", this.score)
+            : null;
+    }
+
+    gameOver() {
+        this.physics.pause();
+        this.bird.setTint(0xff0000);
+
+        this.saveHighscore();
+
+        this.time.addEvent({
+            delay: 1000,
+            callback: () => {
+                this.scene.restart();
+            },
+            loop: false,
+        });
     }
 
     flap() {
         this.bird.body.velocity.y = this.flapStrength;
+    }
+
+    increaseScore() {
+        this.score++;
+        this.scoreText.setText(`Score: ${this.score}`);
     }
 }
 
